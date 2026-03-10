@@ -3,7 +3,8 @@ import zstandard
 
 import numpy as np
 
-def encode_video(video, i_frame_indices):
+
+def encode_video(video, i_frame_indices, compression_factor, num_threads):
 
     # Cast to int16 to calculate P-frames. Since the P-frames are only integer values, int16 will do just fine.
     video = video.to(torch.int16)
@@ -21,12 +22,12 @@ def encode_video(video, i_frame_indices):
     # Substitutes the frames in the p_frame_mask for the P-frames calculated with diff
     video[p_frame_mask] = p_frames[p_frame_mask]
 
-    array_bytes_compressed = compress_video(video, i_frame_indices)
+    array_bytes_compressed = compress_video(video, i_frame_indices, compression_factor, num_threads)
     
     return array_bytes_compressed
 
 
-def compress_video(video, i_frame_indices):
+def compress_video(video, i_frame_indices, compression_factor, num_threads):
     video_cpu = video.cpu().numpy()
 
     # Get the info needed for the header.
@@ -40,7 +41,7 @@ def compress_video(video, i_frame_indices):
     full_payload    = header_video_shape + header_i_frame_count + header_i_frame_data + raw_video_bytes
 
     # There is no implementation of Zstandard that runs on the GPU, so the actual compression has to be done on the CPU.
-    compressor = zstandard.ZstdCompressor(level=16, threads=-1)
+    compressor = zstandard.ZstdCompressor(level=compression_factor, threads=num_threads)
     array_bytes_compressed = compressor.compress(full_payload)
 
     return array_bytes_compressed

@@ -19,6 +19,10 @@ def decode(compressed_bytes):
 
         video[scene_start : scene_end] = torch.cumsum(video[scene_start : scene_end], dim=0)
 
+
+    video = video.clip(0,255).to(torch.uint8)
+    video = video[:, :, :, ::-1]
+
     return video
 
 def decompress_video(compressed_bytes):
