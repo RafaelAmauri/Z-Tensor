@@ -1,43 +1,48 @@
-import cv2
-import torch
-import numpy as np
-
 from ztensor.utils import parser, video
-from ztensor.codec import encoder, decoder, i_frames
-from ztensor.effects import histogram, blur, edge_detect
+from ztensor.pipeline import pipeline
+
+from tests.test_codec_fidelity import test_codec_fidelity
 
 
-args = parser.make_parser().parse_args()
-parser.validate_args(args)
+if __name__ == '__main__':
+
+    args = parser.make_parser().parse_args()
+    parser.validate_args(args)
 
 
-if args.encode:
-    print("Encoding video...")
-    video_rgb         = video.read_video(args.input_video).to(args.device)
-    video_grayscale   = video.rgb_to_grayscale(video_rgb)
+    if args.encode:
+        print("Encoding video...")
+        _, encoded_video = pipeline.encode_pipeline( args.input_video, 
+                                            args.device, 
+                                            args.mem, 
+                                            args.compression_factor, 
+                                            args.threads
+                                            )
 
-    blurred_grayscale = blur.blur_video(video_grayscale)
-    blurred_histogram = histogram.video_histogram(blurred_grayscale, args.mem)
+        # Writing encoded video
+        with open(f"{args.name}.ztensor", "wb") as f:
+            f.write(encoded_video)
 
-    video_edges       = edge_detect.sobel(blurred_grayscale)
+        print(f"Encoded video saved as {args.name}.ztensor")
 
-    troi_slices       = histogram.temporal_region_of_interest(blurred_histogram)
-    i_frame_indices   = i_frames.select_i_frames(video_edges, troi_slices)
 
-    encoded_video = encoder.encode_video(video_rgb, i_frame_indices, args.compression_factor, args.threads)
+    elif args.decode:
+        print("Decoding video...")
 
-    # Writing encoded video
-    with open(f"{args.output_video}.ztensor", "wb") as f:
-        f.write(encoded_video)
+        with open(args.input_video, "rb") as f:
+            bytes_data = f.read()
 
-elif args.decode:
-    print("Decoding video...")
-    with open(args.input_video, "rb") as f:
-        bytes_data = f.read()
-
-    decoded_video = decoder.decode(bytes_data)
-
-    # Writing decoded video
-    with open(f"{args.output_video}.raw", "wb") as f:
+        decoded_video = pipeline.decode_pipeline(bytes_data)
         decoded_video = decoded_video.cpu().numpy()
-        f.write(decoded_video.tobytes())
+
+        video.write_video(decoded_video, args.name)
+
+        print(f"Decoded file saved as {args.name}.avi!")
+
+
+    elif args.test:
+        print("Calculating PSNR/SSIM scores")
+        print("-"*50)
+        print("PSNR: 0.0 to inf, with infinite being a perfect score.\nSSIM: 0.0 to 1.0, with 1.0 being a perfect score", end="\n\n")
+
+        test_codec_fidelity(args)

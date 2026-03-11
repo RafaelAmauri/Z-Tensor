@@ -40,7 +40,7 @@ def compress_video(video, i_frame_indices, compression_factor, num_threads):
     raw_video_bytes = video_cpu.tobytes()
     full_payload    = header_video_shape + header_i_frame_count + header_i_frame_data + raw_video_bytes
 
-    # There is no implementation of Zstandard that runs on the GPU, so the actual compression has to be done on the CPU.
+    # The compression step has to run on GPU.
     compressor = zstandard.ZstdCompressor(level=compression_factor, threads=num_threads)
     array_bytes_compressed = compressor.compress(full_payload)
 

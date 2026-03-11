@@ -21,9 +21,9 @@ def decode(compressed_bytes):
 
 
     video = video.clip(0,255).to(torch.uint8)
-    video = video[:, :, :, ::-1]
 
     return video
+
 
 def decompress_video(compressed_bytes):
     decompressed_bytes = zstandard.decompress(compressed_bytes)
