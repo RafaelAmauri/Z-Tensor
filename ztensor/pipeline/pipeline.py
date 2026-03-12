@@ -1,8 +1,11 @@
-from ztensor.utils import parser, video
-from ztensor.codec import encoder, decoder, i_frames
-from ztensor.effects import histogram, blur, edge_detect, bgr2yuv
+import torch
+import typing
 
-def encode_pipeline(input_path, device, memory_budget, compression_factor, num_threads):
+from ztensor.utils import video
+from ztensor.codec import encoder, decoder, i_frames
+from ztensor.effects import histogram, blur, edge_detect
+
+def encode_pipeline(input_path: str, device: torch.device, memory_budget: int, compression_factor: int, num_threads: int) -> typing.Tuple[torch.Tensor, bytes]:
     video_bgr         = video.read_video(input_path).to(device)
     video_grayscale   = video.bgr_to_grayscale(video_bgr)
 
@@ -19,7 +22,7 @@ def encode_pipeline(input_path, device, memory_budget, compression_factor, num_t
     return video_bgr, encoded_video
 
 
-def decode_pipeline(bytes_data):
+def decode_pipeline(bytes_data: bytes) -> torch.Tensor:
 
     decoded_video = decoder.decode(bytes_data)
 

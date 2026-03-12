@@ -4,7 +4,7 @@ import zstandard
 import numpy as np
 
 
-def encode_video(video, i_frame_indices, compression_factor, num_threads):
+def encode_video(video: torch.Tensor, i_frame_indices: torch.Tensor, compression_factor: int, num_threads: int) -> bytes:
 
     # Cast to int16 to calculate P-frames. Since the P-frames are only integer values, int16 will do just fine.
     video = video.to(torch.int16)
@@ -27,7 +27,7 @@ def encode_video(video, i_frame_indices, compression_factor, num_threads):
     return array_bytes_compressed
 
 
-def compress_video(video, i_frame_indices, compression_factor, num_threads):
+def compress_video(video: torch.Tensor, i_frame_indices: torch.Tensor, compression_factor: int, num_threads:int) -> bytes:
     video_cpu = video.cpu().numpy()
 
     # Get the info needed for the header.

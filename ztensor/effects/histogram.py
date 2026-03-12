@@ -1,8 +1,9 @@
 import torch
 import torch.nn.functional as F
 
+import typing
 
-def video_histogram(video_grayscale, MEMBUDGET):
+def video_histogram(video_grayscale: torch.Tensor, MEMBUDGET: int) -> torch.Tensor:
     """
     Since torch.histc does not run generate histograms using dimensions, this function uses a one-hot encoding trick to generate histograms
     for the frames in parallel on the GPU.
@@ -11,8 +12,10 @@ def video_histogram(video_grayscale, MEMBUDGET):
         video_grayscale: The grayscale video
         MEMBUDGET: The maximum VRAM usage allowed
     """
-
-    batch_size = int(MEMBUDGET // (video_grayscale.numel() * 8)) # video_grayscale.numel() * 8 because the video needs to be converted into int64 for F.one_hot(), so each "bin" is 8 bytes long.
+    # video_grayscale.numel()//video_grayscale.shape[0] divides the number of pixels in the video by the number of frames, getting the number of pixel per-frame.
+    # 8 * 256 because the video needs to be converted into int64 for F.one_hot(), so each "bin" is 8 bytes long and there are 256 bins.
+    frame_size_bytes = video_grayscale.numel()//video_grayscale.shape[0] * 8 * 256  
+    batch_size = int(MEMBUDGET // (frame_size_bytes))
     batch_size = max(1, batch_size)
     batched_video_grayscale = video_grayscale.split(batch_size)
     
@@ -24,13 +27,18 @@ def video_histogram(video_grayscale, MEMBUDGET):
         batch_histogram_3d = batch_histogram_3d.sum(dim=(1, 2)).to(torch.float32)
         video_histogram.append(batch_histogram_3d)
     
-    video_histogram = torch.cat(video_histogram)
-    video_histogram = video_histogram
+    video_histogram = torch.cat(video_histogram).to(video_grayscale.device)
+    
+    if batch_gray_int64.is_cuda:
+        del batch_gray_int64
+        del batch_histogram_3d
+        torch.cuda.synchronize()
+        torch.cuda.empty_cache()
 
     return video_histogram
 
 
-def temporal_region_of_interest(video_histogram):
+def temporal_region_of_interest(video_histogram: torch.Tensor) -> typing.List[torch.Tensor]:
     """
     Uses the histogram deltas to pinpoint motion-based temporal region of interest (TROIs) in the video.
     These TROIs suggest where to add I-Frames.

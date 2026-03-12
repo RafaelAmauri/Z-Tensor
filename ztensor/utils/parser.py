@@ -2,9 +2,9 @@ import os
 import psutil
 import torch
 
-from argparse import ArgumentParser
+from argparse import ArgumentParser, Namespace
 
-def make_parser():
+def make_parser() -> ArgumentParser:
     parser = ArgumentParser(description='Define the program parameters')
 
     parser.add_argument('-i', '--input-video', type=str,
@@ -38,7 +38,7 @@ def make_parser():
     return parser
 
 
-def validate_args(args) -> None:
+def validate_args(args: Namespace) -> None:
 
     if sum([args.encode, args.decode, args.test]) != 1:
         raise ValueError(f"Choose exactly one operation: --encode, --decode, or --test.")
@@ -61,12 +61,8 @@ def validate_args(args) -> None:
         args.threads = 1
 
 
-    max_mem = get_max_mem(args.device)
-    if max_mem == 0:
-        args.device = "cpu"
-        max_mem     = psutil.virtual_memory().total
-    else:
-        args.device = int(args.device)
+    args.device = check_device(args.device)
+    max_mem     = get_max_mem(args.device)
 
     mem_str = args.mem.strip().upper()
     try:
@@ -79,22 +75,32 @@ def validate_args(args) -> None:
     except ValueError:
         raise ValueError(f"Could not parse memory amount from \'{args.mem}\'")
     
-    if mem_bytes > 0.8 * max_mem:
-        print(f"Requested memory amount leaves almost no headroom for your PC. Capping the usage at 80% of the maximum memory available")
-        mem_bytes = 0.8 * max_mem
+    if mem_bytes > 0.7 * max_mem:
+        print(f"Requested memory amount leaves almost no headroom for your PC. Capping the usage at 70% of the maximum memory available")
+        mem_bytes = 0.7 * max_mem
 
     args.mem = int(mem_bytes)
 
 
-def get_max_mem(device_id):
-    if device_id == 'cpu':
-        return 0
-    else:
-        device_id = int(device_id)
-        if torch.cuda.is_available():
-            total_memory_bytes = torch.cuda.get_device_properties(device_id).total_memory
-            return total_memory_bytes
+def check_device(device: str) -> torch.device:
+    try:
+        validated_device = torch.device(device) if not device.isdigit() else torch.device(f"cuda:{device}")
+    
+        if validated_device.type == 'cuda' and not torch.cuda.is_available():
+            print(f"No CUDA-enabled GPU detect. Falling back to CPU...")
+            validated_device = torch.device('cpu')
+        
+    except Exception:
+        print(f"Error trying to access device \'{device}\'. Falling back to CPU...")
+        validated_device = torch.device('cpu')
 
-        else:
-            print(f"No CUDA-enabled GPU detect. Falling back to CPU")
-            return 0
+    return validated_device
+
+
+def get_max_mem(device: torch.device) -> int:
+    if device == torch.device('cpu'):
+        total_memory_bytes = psutil.virtual_memory().total
+    else:
+        total_memory_bytes = torch.cuda.get_device_properties(device).total_memory
+    
+    return int(total_memory_bytes)

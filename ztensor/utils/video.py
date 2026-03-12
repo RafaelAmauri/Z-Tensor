@@ -1,11 +1,10 @@
-import os
 import cv2
 import torch
 import ffmpeg
 import numpy as np
 
 
-def read_video(video_path):
+def read_video(video_path: str) -> torch.Tensor:
 
     cap = cv2.VideoCapture(video_path)
 
@@ -32,7 +31,7 @@ def read_video(video_path):
     return video_bgr
 
 
-def bgr_to_grayscale(video_bgr):
+def bgr_to_grayscale(video_bgr: torch.Tensor) -> torch.Tensor:
     bgr_to_grayscale_weights = torch.tensor([0.114, 0.587, 0.299], dtype=torch.float32, device=video_bgr.device)
     bgr_to_grayscale_weights = bgr_to_grayscale_weights.view(1,1,1,3)
 
@@ -42,15 +41,25 @@ def bgr_to_grayscale(video_bgr):
     return video_grayscale
 
 
-def write_video(video, name):
-    _, h, w, _   = video.shape
-    video        = video.tobytes()
+def write_video(video: np.ndarray, name: str) -> None:
+    _, h, w, _  = video.shape
+    video_bytes = video.tobytes()
 
-    with open(f"{name}.raw", "wb") as f:
-        f.write(video)
+    process = (
+        ffmpeg.input('pipe:', 
+                 format='rawvideo', 
+                 pix_fmt='bgr24', 
+                 s=f'{w}x{h}', 
+                 r=30
+                 )
+        .output(f'{name}.avi', 
+                vcodec='rawvideo', 
+                pix_fmt='bgr24'
+                )
+        .overwrite_output()
+        .run_async(pipe_stdin=True, quiet=True)
+    )
 
-    ffmpeg.input(f'{name}.raw', format='rawvideo', pix_fmt='bgr24', s=f'{w}x{h}', r=30) \
-    .output(f'{name}.avi', vcodec='rawvideo', pix_fmt='bgr24') \
-    .run(quiet=True, overwrite_output=True)
-
-    os.remove(f"{name}.raw")
+    process.stdin.write(video_bytes)
+    process.stdin.close()
+    process.wait()

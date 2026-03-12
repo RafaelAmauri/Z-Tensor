@@ -1,10 +1,11 @@
 import torch
+import typing
 import zstandard
 
 import numpy as np
 
 
-def decode(compressed_bytes):
+def decode(compressed_bytes: bytes) -> torch.Tensor:
     video, i_frames = decompress_video(compressed_bytes)
     video, i_frames = video.copy(), i_frames.copy()
 
@@ -25,7 +26,7 @@ def decode(compressed_bytes):
     return video
 
 
-def decompress_video(compressed_bytes):
+def decompress_video(compressed_bytes: bytes) -> typing.Tuple[np.ndarray, np.ndarray ]:
     decompressed_bytes = zstandard.decompress(compressed_bytes)
 
     shape_bytes = decompressed_bytes[0:16]

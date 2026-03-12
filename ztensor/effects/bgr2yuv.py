@@ -1,6 +1,6 @@
 import torch
 
-def bgr2yuv(bgr_video):
+def bgr2yuv(bgr_video: torch.Tensor) -> torch.Tensor:
     '''
     https://www.computerlanguage.com/results.php?definition=YUV%2FRGB+conversion+formulas
 
@@ -21,7 +21,7 @@ def bgr2yuv(bgr_video):
     return yuv_video
 
 
-def yuv2bgr(yuv_video):
+def yuv2bgr(yuv_video: torch.Tensor) -> torch.Tensor:
     '''
     From YUV to RGB
 

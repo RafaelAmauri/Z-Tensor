@@ -21,7 +21,6 @@ def run_fidelity_check(video_path, device, memory_budget, compression_factor, nu
     original_video = original_video.cpu().numpy().astype(np.uint8)
     decoded_video  = decoded_video.cpu().numpy().astype(np.uint8)
 
-
     psnr_values = []
     ssim_values = []
 

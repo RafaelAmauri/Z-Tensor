@@ -9,7 +9,6 @@ if __name__ == '__main__':
     args = parser.make_parser().parse_args()
     parser.validate_args(args)
 
-
     if args.encode:
         print("Encoding video...")
         _, encoded_video = pipeline.encode_pipeline( args.input_video, 

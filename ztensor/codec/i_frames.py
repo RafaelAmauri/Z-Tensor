@@ -1,7 +1,7 @@
 import torch
+import typing
 
-
-def select_i_frames(edges_video, troi_slices):
+def select_i_frames(edges_video: torch.Tensor, troi_slices: typing.List[torch.Tensor]) -> torch.Tensor:
     frame_variances = torch.var(edges_video, dim=(1,2))
     i_frame_indices = set()
     i_frame_indices.add(0)
