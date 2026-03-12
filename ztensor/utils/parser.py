@@ -22,7 +22,7 @@ def make_parser():
     parser.add_argument('--test', action='store_true', default=False,
                         help="Run encode/decode and calculate PSNR and SSIM metrics.")
     
-    parser.add_argument('-cf', '--compression-factor', type=int, default=12,
+    parser.add_argument('-cf', '--compression-factor', type=int, default=16,
                         help="The compression factor for zstandard. Higher values lead to better compression, but increase encode time. Accepted values go from 1 to 20.")
     
     parser.add_argument('-t', '--threads', type=int, default=-1,
