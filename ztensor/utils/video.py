@@ -1,6 +1,7 @@
+import os
 import cv2
 import torch
-import subprocess
+import ffmpeg
 import numpy as np
 
 
@@ -42,11 +43,14 @@ def bgr_to_grayscale(video_bgr):
 
 
 def write_video(video, name):
-    video = video.tobytes()
+    _, h, w, _   = video.shape
+    video        = video.tobytes()
 
     with open(f"{name}.raw", "wb") as f:
         f.write(video)
 
-    subprocess.run(f"ffmpeg -loglevel quiet -f rawvideo -pixel_format bgr24 -video_size 352x288 -framerate 30 -i {name}.raw -c:v rawvideo -pix_fmt bgr24 {name}.avi", shell=True, check=True)
+    ffmpeg.input(f'{name}.raw', format='rawvideo', pix_fmt='bgr24', s=f'{w}x{h}', r=30) \
+    .output(f'{name}.avi', vcodec='rawvideo', pix_fmt='bgr24') \
+    .run(quiet=True, overwrite_output=True)
 
-    subprocess.run(f"rm {name}.raw", shell=True)
+    os.remove(f"{name}.raw")

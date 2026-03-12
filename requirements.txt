@@ -1,7 +1,9 @@
 cuda-bindings==12.9.4
 cuda-pathfinder==1.4.1
+ffmpeg-python==0.2.0
 filelock==3.25.0
 fsspec==2026.2.0
+future==1.0.0
 ImageIO==2.37.3
 Jinja2==3.1.6
 lazy-loader==0.5
