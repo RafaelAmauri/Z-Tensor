@@ -2,7 +2,15 @@ import torch
 import torch.nn.functional as F
 
 
-def sobel(video_grayscale):
+def sobel(video_grayscale: torch.Tensor) -> torch.Tensor:
+    """Runs the sobel edge detection algorithm.
+
+    Args:
+        video_grayscale (torch.Tensor): The video in grayscale
+
+    Returns:
+        torch.Tensor: The frames with edge-detection applied
+    """
     sobel_horizontal = torch.as_tensor(
                             [
                                 [ 1,  2,  1],
@@ -28,7 +36,7 @@ def sobel(video_grayscale):
     horizontal_gradients = F.conv2d(video_4d, sobel_horizontal, padding=1)
     vertical_gradients   = F.conv2d(video_4d, sobel_vertical, padding=1)
     
-    gradient = torch.sqrt((horizontal_gradients**2) + (vertical_gradients**2))
-    gradient = gradient.squeeze(1)
+    gradients = torch.sqrt((horizontal_gradients**2) + (vertical_gradients**2))
+    gradients = gradients.squeeze(1)
     
-    return gradient
+    return gradients
