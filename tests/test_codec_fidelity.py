@@ -7,16 +7,17 @@ from skimage.metrics import structural_similarity as ssim
 
 from ztensor.pipeline import pipeline
 
-def run_fidelity_check(video_path, device, memory_budget, compression_factor, num_threads):
+def run_fidelity_check(video_path, device, memory_budget, compression_factor, num_threads, chroma_subsampling):
     original_video, encoded_video = pipeline.encode_pipeline(   video_path, 
                                                                 device, 
                                                                 memory_budget, 
                                                                 compression_factor, 
-                                                                num_threads
+                                                                num_threads,
+                                                                chroma_subsampling
                                                                 )
     
 
-    decoded_video = pipeline.decode_pipeline(encoded_video)
+    decoded_video = pipeline.decode_pipeline(encoded_video, device)
     
     original_video = original_video.cpu().numpy().astype(np.uint8)
     decoded_video  = decoded_video.cpu().numpy().astype(np.uint8)
@@ -50,7 +51,7 @@ def test_codec_fidelity(args):
         videos   = [ os.path.join(test_dir, f) for f in os.listdir(test_dir) if f.endswith(('.avi'))]
 
 
-    print(f"{'Video Source':<30} | {'PSNR score':<20} | {'SSIM score':<20}")
+    print(f"{'Video Source':<30} | {'PSNR score (dB)':<20} | {'SSIM score':<20}")
     print("-" * 70)
 
 
@@ -60,10 +61,11 @@ def test_codec_fidelity(args):
                                                 args.device, 
                                                 args.mem, 
                                                 args.compression_factor, 
-                                                args.threads
+                                                args.threads,
+                                                args.chroma
                                                 )
 
         if np.isinf(avg_psnr):
-            print(f"{os.path.basename(video_path):<30} | {'Lossless':<20} | {avg_ssim:<20.4f}")
+            print(f"{os.path.basename(video_path):<30} | {'Lossless':<20} | {avg_ssim:<20.2f}")
         else:
-            print(f"{os.path.basename(video_path):<30} | {avg_psnr:<20} | {avg_ssim:<20.4f}")
+            print(f"{os.path.basename(video_path):<30} | {avg_psnr:<20.2f} | {avg_ssim:<20.2f}")
