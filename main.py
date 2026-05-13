@@ -15,9 +15,10 @@ if __name__ == '__main__':
                                             args.device, 
                                             args.mem, 
                                             args.compression_factor, 
-                                            args.threads
+                                            args.threads,
+                                            args.chroma
                                             )
-
+        
         # Writing encoded video
         with open(f"{args.name}.ztensor", "wb") as f:
             f.write(encoded_video)
@@ -31,7 +32,7 @@ if __name__ == '__main__':
         with open(args.input_video, "rb") as f:
             bytes_data = f.read()
 
-        decoded_video = pipeline.decode_pipeline(bytes_data)
+        decoded_video = pipeline.decode_pipeline(bytes_data, args.device)
         decoded_video = decoded_video.cpu().numpy()
 
         video.write_video(decoded_video, args.name)
@@ -43,5 +44,6 @@ if __name__ == '__main__':
         print("Calculating PSNR/SSIM scores")
         print("-"*50)
         print("PSNR: 0.0 to inf, with infinite being a perfect score.\nSSIM: 0.0 to 1.0, with 1.0 being a perfect score", end="\n\n")
+        print("Quality Reference:\nPSNR >= 40 dB, SSIM >= 0.95: Unnoticeable/Excelent Fidelity\nPSNR >= 30 dB, SSIM >= 0.90: Good Fidelity\n")
 
         test_codec_fidelity(args)
