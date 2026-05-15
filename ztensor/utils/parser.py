@@ -28,13 +28,15 @@ def make_parser() -> ArgumentParser:
     parser.add_argument('-t', '--threads', type=int, default=4,
                         help="The number of threads zstandard is allowed to use for compression. Default = 4.")
     
-    parser.add_argument('--chroma', type=str, default='quarter', choices=['full', 'half-width', 'quarter'], help="The level for chroma subsampling. \'full\' is 444/No chroma subsampling, \'half-width\' is 422, \'quarter\' is 420. Default = quarter")
+    parser.add_argument('-c', '--chroma', type=str, default='quarter', choices=['full', 'half-width', 'quarter'], help="The level for chroma subsampling. \'full\' is 444/No chroma subsampling, \'half-width\' is 422, \'quarter\' is 420. Default = quarter")
+
+    parser.add_argument('-q', '--quantize', action='store_true', default=False, help="Quantizes the residuals down by a factor of 2 to allow the frames to be stored in int8 instead of int16. Reduces final filesize by half with usually unnoticeable loss. Default = Off")
 
     parser.add_argument('-mem', type=str, default='2G',
-                        help="The amount of memory that the motion estimation algorithm is allowed to use. Use G for GB and M for MB. The default is 2G. The codec respects this memory limit regardless of the value for \'-device\'")
+                        help="The amount of memory that the motion estimation algorithm is allowed to use. Use G for GB and M for MB. The codec respects this memory limit regardless of the value for \'-device\'. Default = 2G")
 
     parser.add_argument('-device', type=str, default='0',
-                        help="Use \"cpu\" to run on the CPU and numbers to select which GPU to use.")
+                        help="Use \"cpu\" to run on the CPU and numbers to select which GPU to use. Default = cuda:0")
     
 
     return parser

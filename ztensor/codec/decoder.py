@@ -5,13 +5,13 @@ import zstandard
 import numpy as np
 import torch.nn.functional as F
 
-from ztensor.effects import chroma
+from ztensor.effects import chroma, quantization
 
 
 def decode_video(compressed_bytes: bytes, device: torch.device) -> torch.Tensor:
-    video, i_frames = decompress_video(compressed_bytes, device)
+    video, i_frame_indices = decompress_video(compressed_bytes, device)
 
-    scene_boundaries = i_frames.tolist()
+    scene_boundaries = i_frame_indices.tolist()
     scene_boundaries.append(len(video))
 
     for i in range(len(scene_boundaries)-1):
@@ -32,16 +32,21 @@ def decompress_video(compressed_bytes: bytes, device: torch.device) -> typing.Tu
     pixel_format  = decompressed_bytes[current_byte : current_byte+4].decode('ascii')
     current_byte += 4
 
-    num_planes    = int.from_bytes(decompressed_bytes[current_byte : current_byte+4])
+    is_quantized        = bool.from_bytes(decompressed_bytes[current_byte : current_byte+1])
+    datatype_format     = np.int8 if is_quantized else np.int16
+    num_bytes_per_pixel = 1 if is_quantized else 2
+    current_byte   += 1
+
+    num_planes    = int.from_bytes(decompressed_bytes[current_byte : current_byte+1], signed=False)
+    current_byte += 1
+
+    num_i_frames  = int.from_bytes(decompressed_bytes[current_byte : current_byte+4], signed=False)
     current_byte += 4
 
-    num_i_frames  = int.from_bytes(decompressed_bytes[current_byte : current_byte+4])
-    current_byte += 4
 
-
-    i_frames      = np.frombuffer(decompressed_bytes[current_byte : current_byte + (num_i_frames*4)], dtype=np.int32).copy() # we create a copy because torch asks for a writeable copy of the bytearray, not a read-only memory view of it.
-    i_frames      = torch.as_tensor(i_frames, dtype=torch.int32, device=device)
-    current_byte += num_i_frames*4
+    i_frame_indices = np.frombuffer(decompressed_bytes[current_byte : current_byte + (num_i_frames*4)], dtype=np.uint32).copy() # we create a copy because torch asks for a writeable copy of the bytearray, not a read-only memory view of it.
+    i_frame_indices = torch.as_tensor(i_frame_indices, dtype=torch.uint32, device=device)
+    current_byte   += num_i_frames*4
 
     plane_shapes = []
     for _ in range(num_planes):
@@ -52,9 +57,12 @@ def decompress_video(compressed_bytes: bytes, device: torch.device) -> typing.Tu
 
     planes = []
     for shape in plane_shapes:
-        plane_len     = np.prod(shape) * 2 # The number of bytes that the current plan has. Multiplied by 2 because the plane is an int16
-        plane         = np.frombuffer(decompressed_bytes[current_byte : current_byte + plane_len], dtype=np.int16).copy()
+        plane_len     = np.prod(shape) * num_bytes_per_pixel # The number of bytes that the current plan has.
+        plane         = np.frombuffer(decompressed_bytes[current_byte : current_byte + plane_len], dtype=datatype_format).copy()
         plane         = torch.as_tensor(plane, dtype=torch.int16, device=device).reshape(tuple(shape))
+        
+        if is_quantized:
+            plane = quantization.upsample(plane).to(torch.int16)
         
         current_byte += plane_len
 
@@ -90,4 +98,4 @@ def decompress_video(compressed_bytes: bytes, device: torch.device) -> typing.Tu
     else:
         raise ValueError(f"Unsupported format: {pixel_format}")
 
-    return video, i_frames
+    return video, i_frame_indices

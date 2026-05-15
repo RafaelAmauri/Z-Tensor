@@ -5,12 +5,15 @@ import numpy as np
 
 from typing import List
 
-def encode_video(planes: List[torch.Tensor], i_frame_indices: torch.Tensor, compression_factor: int, num_threads: int, pixel_format: str) -> bytes:
+from ztensor.effects import quantization
+
+def encode_video(planes: List[torch.Tensor], i_frame_indices: torch.Tensor, compression_factor: int, num_threads: int, pixel_format: str, quantize: bool) -> bytes:
 
     header  = pixel_format.encode('ascii')
-    header += len(planes).to_bytes(4)                                  # int32 the number of planes in the video. This is necessary for decoding the video
-    header += len(i_frame_indices).to_bytes(4)                         # int32 the number of i-frames in the video
-    header += i_frame_indices.cpu().numpy().astype(np.int32).tobytes() # int32 indices of the i-frames
+    header += quantize.to_bytes(1)                                       # bool   whether the pixel values are quantized or not
+    header += len(planes).to_bytes(1, signed=False)                      # uint8  the number of planes in the video.
+    header += len(i_frame_indices).to_bytes(4, signed=False)             # uint32 the number of i-frames in the video
+    header += i_frame_indices.cpu().numpy().astype(np.uint32).tobytes()  # uint32 indices of the i-frames
 
     payload = bytes()
 
@@ -32,6 +35,11 @@ def encode_video(planes: List[torch.Tensor], i_frame_indices: torch.Tensor, comp
         plane_tensor[p_frame_mask] = p_frames[p_frame_mask]
 
         plane_shape    = np.array(plane_tensor.shape, dtype=np.int32).tobytes()
+
+        if quantize:
+            plane_tensor = quantization.downsample(plane_tensor).to(torch.int8)
+
+
         plane_bytes    = plane_tensor.cpu().numpy().tobytes()
         
         header        += plane_shape # int32 shape for the current plane
@@ -44,7 +52,7 @@ def encode_video(planes: List[torch.Tensor], i_frame_indices: torch.Tensor, comp
 
 
 def compress_video(video_bytes: bytes, compression_factor: int, num_threads:int) -> bytes:
-    # The compression step has to run on GPU.
+    # The compression step has to run on CPU.
     compressor             = zstandard.ZstdCompressor(level=compression_factor, threads=num_threads)
     video_bytes_compressed = compressor.compress(video_bytes)
 

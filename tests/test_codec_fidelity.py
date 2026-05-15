@@ -7,13 +7,14 @@ from skimage.metrics import structural_similarity as ssim
 
 from ztensor.pipeline import pipeline
 
-def run_fidelity_check(video_path, device, memory_budget, compression_factor, num_threads, chroma_subsampling):
+def run_fidelity_check(video_path, device, memory_budget, compression_factor, num_threads, chroma_subsampling, quantize):
     original_video, encoded_video = pipeline.encode_pipeline(   video_path, 
                                                                 device, 
                                                                 memory_budget, 
                                                                 compression_factor, 
                                                                 num_threads,
-                                                                chroma_subsampling
+                                                                chroma_subsampling,
+                                                                quantize
                                                                 )
     
 
@@ -62,7 +63,8 @@ def test_codec_fidelity(args):
                                                 args.mem, 
                                                 args.compression_factor, 
                                                 args.threads,
-                                                args.chroma
+                                                args.chroma,
+                                                args.quantize
                                                 )
 
         if np.isinf(avg_psnr):

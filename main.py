@@ -16,7 +16,8 @@ if __name__ == '__main__':
                                             args.mem, 
                                             args.compression_factor, 
                                             args.threads,
-                                            args.chroma
+                                            args.chroma,
+                                            args.quantize
                                             )
         
         # Writing encoded video
