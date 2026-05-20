@@ -36,6 +36,33 @@ Z-Tensor is not a wrapper around FFmpeg or any other existing codec :) Every ste
 
 The decoder reverses this: Zstandard decompress → parse header → per-scene cumulative sum to reconstruct P-frames → interpolate the subsampled chroma planes if chroma subsampling was used, → YUV→BGR → clip to `uint8` -> save as a watchable video!
 
+
+## Benchmarks
+
+#### Some quick tests on standard CIF/QCIF benchmark videos
+
+#### Balanced Lossy mode (`--chroma half-width -qp 0`)
+
+| Video | PSNR (dB) | SSIM | Original Filesize | Z-Tensor Filesize | Compression Ratio |
+| --- | --- | --- | --- | --- | --- |
+| carphone_qcif.avi | 42.96 | 1.00 | 29 MB | 7 MB | 4.1× |
+| bus_cif.avi | 41.29 | 1.00 | 45 MB | 16 MB | 2.8× |
+| bowing_cif.avi | 45.63 | 1.00 | 91 MB | 17 MB | 5.4× |
+
+#### Lossless mode (`--chroma full -qp 0`)
+
+| Video |PSNR (dB) | SSIM | Original Filesize | Z-Tensor Filesize | Compression Ratio |
+| --- | --- | --- | --- | --- | --- |
+| carphone_qcif.avi | Lossless | 1.00 | 29 MB | 17 MB | 1.7× |
+| bus_cif.avi | Lossless | 1.00 | 45 MB | 37 MB | 1.2× |
+| bowing_cif.avi | Lossless | 1.00 | 91 MB | 41 MB | 2.2× |
+
+### Quality reference:
+
+- PSNR ≥ 40 dB / SSIM ≥ 0.95: excellent fidelity, visually indistinguishable
+- PSNR ≥ 30 dB / SSIM ≥ 0.90: good fidelity
+
+
 ---
 
 ## Installation
@@ -93,32 +120,6 @@ python main.py --test --chroma quarter -qp 1
 # with Lossless 
 python main.py --test --chroma full -qp 0
 ```
-
-## Results
-
-#### Some quick tests on standard CIF/QCIF benchmark sequences
-
-#### Uses Balanced Lossy mode: `--chroma half-width -qp 0`
-
-| Video | PSNR (dB) | SSIM | Original Filesize | Z-Tensor Filesize | Compression Ratio |
-| --- | --- | --- | --- | --- | --- |
-| carphone_qcif.avi | 42.96 | 1.00 | 29 MB | 7 MB | 4.1× |
-| bus_cif.avi | 41.29 | 1.00 | 45 MB | 16 MB | 2.8× |
-| bowing_cif.avi | 45.63 | 1.00 | 91 MB | 17 MB | 5.4× |
-
-#### Lossless mode (`--chroma full -qp 0`)
-
-| Video |PSNR (dB) | SSIM | Original Filesize | Z-Tensor Filesize | Compression Ratio |
-| --- | --- | --- | --- | --- | --- |
-| carphone_qcif.avi | Lossless | 1.00 | 29 MB | 17 MB | 1.7× |
-| bus_cif.avi | Lossless | 1.00 | 45 MB | 37 MB | 1.2× |
-| bowing_cif.avi | Lossless | 1.00 | 91 MB | 41 MB | 2.2× |
-
-Quality reference:
-
-- PSNR ≥ 40 dB / SSIM ≥ 0.95: excellent fidelity, visually indistinguishable
-- PSNR ≥ 30 dB / SSIM ≥ 0.90: good fidelity
-
 ---
 
 ## Flags
