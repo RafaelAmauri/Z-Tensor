@@ -10,33 +10,6 @@ Z-Tensor is not a wrapper around FFmpeg or any other existing codec :) Every ste
 
 ---
 
-## What are the features?
-
-- **End-to-end GPU pipeline.** BGR→YUV, blur, Sobel, chroma subsampling, frame differencing, and histogram computation are all PyTorch ops. The CPU only handles the final Zstandard pass, since Zstandard doesn't run on GPU. This means the encoding runs fast on the GPU and only uses the CPU when needed. The whole pipeline also runs in parallel on the CPU in case the user does not have a GPU.
-- **Scene-aware keyframes.** Instead of placing an I-frame every N frames, Z-Tensor finds scene boundaries by looking at how much the grayscale histogram changes between consecutive frames. Within each scene, it picks the frame with the highest edge content as the keyframe, so the I-frame is the sharpest possible reference for the P-frames to follow.
-- **Frame differencing.** P-frames are stored as the deltas against the previous frame, and the decoder reconstructs them with a cumulative sum within each scene.
-- **Chroma subsampling.** All three canonical modes are implemented: full (4:4:4), half-width (4:2:2), and quarter (4:2:0). The U and V planes are downsampled with 2D average pooling on the GPU.
-- **Optional residual quantization.** A linear mode divides the frame deltas by 2 and stores them as `int8`, trading a very small fidelity hit for a measurable reduction in file size.
-- **VRAM budget.** You tell Z-Tensor how much memory it can use and the histogram stage batches automatically to stay under that limit.
-- **CPU or GPU.** Pass `-device cpu` or a CUDA index and it will use that device!
-
----
-
-## How does the encode pipeline work?
-
-1. Read the video into a `(frames, H, W, 3)` BGR tensor on the chosen device.
-2. Convert to grayscale and apply a 3×3 box blur to make the histograms more robust to noise.
-3. Compute a 256-bin intensity histogram per frame, batched to respect the VRAM budget.
-4. Compare frame histograms to find frames where the histogram change is both a local peak and exceeds `mean + 1σ` of all deltas. This finds sudden scene changes and treats them as cuts in the video.
-5. Within each scene selected above, run Sobel edge detection and pick the frame with the highest edge variance as the scene's I-frame.
-6. Optionally convert to YUV for chroma subsampling.
-7. For every non-I-frame, replace it with `frame - previous_frame`.
-8. Optionally quantize the frame deltas for a smaller filesize.
-9. Serialize the file with a header (pixel format, quantization mode, color plane count, I-frame indices, plane shapes) followed by the plane bytes, and compress the whole byte array with Zstandard.
-
-The decoder reverses this: Zstandard decompress → parse header → per-scene cumulative sum to reconstruct P-frames → interpolate the subsampled chroma planes if chroma subsampling was used, → YUV→BGR → clip to `uint8` -> save as a watchable video!
-
-
 ## Results
 
 ### Tested on standard CIF/QCIF benchmark videos
@@ -62,6 +35,34 @@ The decoder reverses this: Zstandard decompress → parse header → per-scene c
 - PSNR ≥ 40 dB / SSIM ≥ 0.95: excellent fidelity, visually indistinguishable
 - PSNR ≥ 30 dB / SSIM ≥ 0.90: good fidelity
 
+
+
+
+## What are the features?
+
+- **End-to-end GPU pipeline.** BGR→YUV, blur, Sobel, chroma subsampling, frame differencing, and histogram computation are all PyTorch ops. The CPU only handles the final Zstandard pass, since Zstandard doesn't run on GPU. This means the encoding runs fast on the GPU and only uses the CPU when needed. The whole pipeline also runs in parallel on the CPU in case the user does not have a GPU.
+- **Scene-aware keyframes.** Instead of placing an I-frame every N frames, Z-Tensor finds scene boundaries by looking at how much the grayscale histogram changes between consecutive frames. Within each scene, it picks the frame with the highest edge content as the keyframe, so the I-frame is the sharpest possible reference for the P-frames to follow.
+- **Frame differencing.** P-frames are stored as the deltas against the previous frame, and the decoder reconstructs them with a cumulative sum within each scene.
+- **Chroma subsampling.** All three canonical modes are implemented: full (4:4:4), half-width (4:2:2), and quarter (4:2:0). The U and V planes are downsampled with 2D average pooling on the GPU.
+- **Optional residual quantization.** A linear mode divides the frame deltas by 2 and stores them as `int8`, trading a very small fidelity hit for a measurable reduction in file size.
+- **VRAM budget.** You tell Z-Tensor how much memory it can use and the histogram stage batches automatically to stay under that limit.
+- **CPU or GPU.** Pass `-device cpu` or a CUDA index and it will use that device!
+
+---
+
+## How does the encode pipeline work?
+
+1. Read the video into a `(frames, H, W, 3)` BGR tensor on the chosen device.
+2. Convert to grayscale and apply a 3×3 box blur to make the histograms more robust to noise.
+3. Compute a 256-bin intensity histogram per frame, batched to respect the VRAM budget.
+4. Compare frame histograms to find frames where the histogram change is both a local peak and exceeds `mean + 1σ` of all deltas. This finds sudden scene changes and treats them as cuts in the video.
+5. Within each scene selected above, run Sobel edge detection and pick the frame with the highest edge variance as the scene's I-frame.
+6. Optionally convert to YUV for chroma subsampling.
+7. For every non-I-frame, replace it with `frame - previous_frame`.
+8. Optionally quantize the frame deltas for a smaller filesize.
+9. Serialize the file with a header (pixel format, quantization mode, color plane count, I-frame indices, plane shapes) followed by the plane bytes, and compress the whole byte array with Zstandard.
+
+The decoder reverses this: Zstandard decompress → parse header → per-scene cumulative sum to reconstruct P-frames → interpolate the subsampled chroma planes if chroma subsampling was used, → YUV→BGR → clip to `uint8` -> save as a watchable video!
 
 ---
 
