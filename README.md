@@ -39,7 +39,7 @@ The decoder reverses this: Zstandard decompress → parse header → per-scene c
 
 ## Benchmarks
 
-#### Some quick tests on standard CIF/QCIF benchmark videos
+#### Some results on standard CIF/QCIF benchmark videos
 
 #### Balanced Lossy mode (`--chroma half-width -qp 0`)
 
