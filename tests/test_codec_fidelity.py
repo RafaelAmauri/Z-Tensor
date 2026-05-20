@@ -53,7 +53,7 @@ def test_codec_fidelity(args):
 
 
     print(f"{'Video Source':<30} | {'PSNR score (dB)':<20} | {'SSIM score':<20} | {'Size Original (MB)':<20} | {'Size Z-Tensor Encoded (MB)':<20}")
-    print("-" * 110)
+    print("-" * 130)
 
 
     for video_path in videos:
