@@ -39,7 +39,7 @@ The decoder reverses this: Zstandard decompress → parse header → per-scene c
 
 ## Benchmarks
 
-#### Some results on standard CIF/QCIF benchmark videos
+#### Some quick tests on standard CIF/QCIF benchmark videos
 
 #### Balanced Lossy mode (`--chroma half-width -qp 0`)
 
@@ -142,6 +142,6 @@ python main.py --test --chroma full -qp 0
 
 ## Some neat things that I might implement in the future:
 
-* Motion estimation via block-matching
+* Motion Estimation via Block-Matching
 * Discrete Cosine Transforms
 * Adaptive Quantization
