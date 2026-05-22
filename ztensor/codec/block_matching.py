@@ -75,12 +75,12 @@ def block_matching(plane, block_width):
                     # The rightmost pixel index has to be less than w, and the bottommost one has to be less than h.
                     # < instead of <= because we're using indexes, and if the rightmost index == w, this will cause an out of bounds error
                     if current_x+i+block_width < w and current_y+j+block_width < h:
-                        patchIds_compare_to_in_prev_frame.append(coords2PatchId([current_x+i, current_y+j], 1, w-(block_width))) # This -(block_width) in w-(block_width) is necessary because we currently don't support
+                        patchIds_compare_to_in_prev_frame.append(coords2PatchId([current_x+i, current_y+j], 1, w-(block_width+1))) # This -(block_width) in w-(block_width) is necessary because we currently don't support
                                                                                                                                  # videos with dimensions that aren't perfectly divisible by block_width x block_width
 
                     # Skip patches that start at a negative position and also skip the ones where i + j = 0, because that one was already added in the line above. It's a base one that always gets added.
                     if (current_x - i >= 0 and current_y - j >= 0) and (i + j != 0):
-                        patchIds_compare_to_in_prev_frame.append(coords2PatchId([current_x-i, current_y-j], 1, w-(block_width)))
+                        patchIds_compare_to_in_prev_frame.append(coords2PatchId([current_x-i, current_y-j], 1, w-(block_width+1)))
 
 
             patchIds_compare_to_in_prev_frame = torch.as_tensor(patchIds_compare_to_in_prev_frame, dtype=torch.int32, device=plane0.device)
@@ -90,7 +90,7 @@ def block_matching(plane, block_width):
 
             # Get coords of the candidate patch with lowest SAD score, which is the best patch (maybe change variable name to candidate_patches?).
             best_patchid            = patchIds_compare_to_in_prev_frame[torch.argmin(sad_scores)] 
-            coords_patch_lowest_sad = patchId2Coords(best_patchid, 1, w-(block_width))
+            coords_patch_lowest_sad = patchId2Coords(best_patchid, 1, w-(block_width+1))
 
             # these are the motion vectors that tell us how to get to the candidate patch starting from the current patch.
             # since the block sizes are all equal, we can use the motion vectors to tell us how to reconstruct the current frame's patch
