@@ -70,19 +70,22 @@ def block_matching(plane, block_width, search_radius):
     blocks_in_plane_height = h // block_width
     blocks_in_plane_width  = w // block_width
 
-    # These two are different. Both divide the plane into patches with dimensions block_width x block_width, but the
-    # first one has a stride of block_width because it is referencing all block_width x block_width patches that cover the image perfectly, while
-    # the second is using for finding candidate patches in the previous frame.
-    # Because the image is padded earlier, it is guaranteed that the image can be divided into block_width x block_width patches
+    # These two are different. Both divide the plane into patches with dimensions block_width x block_width, but
+    # <unfold_window> has a stride of block_width because it is referencing all blocks that cover the image without overlapping, while
+    # unfold_stride_1 is used for finding candidate patches in the previous frame, and must have overlaps to maximize coverage.
+    # Because the planes are always padded if, it is guaranteed that the image can be perfectly divided by patches with dims block_width x block_width 
     unfold_window   = torch.nn.Unfold(kernel_size=(block_width,block_width), stride=block_width)
     unfold_stride_1 = torch.nn.Unfold(kernel_size=(block_width,block_width), stride=1)
 
     
     residue_size         = block_width * block_width
+
+    # Make a fake unfold on a 1-frame plane to get the number of blocks per frame that will be created.
+    # This is necessary to pre-allocate the motion_vectors and block_residuals tensors on the GPU.
     mock_plane_unfold    = unfold_window(torch.empty_like(plane[0].unsqueeze(0).unsqueeze(0)))
     num_blocks_per_frame = mock_plane_unfold.shape[-1]
     
-    # Pre-allocate these two
+    # Pre-allocate these two into memory. 
     motion_vectors  = torch.zeros((num_frames, num_blocks_per_frame, 2),            dtype=torch.int8).to(device)
     block_residuals = torch.zeros((num_frames, num_blocks_per_frame, residue_size), dtype=torch.uint8).to(device)
 
