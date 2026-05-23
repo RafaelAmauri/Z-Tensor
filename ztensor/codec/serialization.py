@@ -36,8 +36,8 @@ def serialize_header(pixel_format: str,
     return header
 
 
-def serialize_payload(num_motion_blocks_per_frame: int, 
-                      motion_blocks: dict, 
+def serialize_payload(motion_vectors: torch.Tensor, 
+                      block_residuals: torch.Tensor, 
                       plane: torch.Tensor, 
                       i_frame_indices: torch.Tensor, 
                       original_plane_h: int, 
@@ -45,8 +45,8 @@ def serialize_payload(num_motion_blocks_per_frame: int,
     """Serialize the payload of the encoded video
 
     Args:
-        num_motion_blocks_per_frame (int): The number of motion blocks in each frame #TODO maybe remove? I think this is always the same value as just doing len(motion_blocks[1]). 
-        motion_blocks (dict): The motion blocks. Stores the motion vectors and the residue for each block
+        motion_vectors (torch.Tensor): The tensor storing the motion vectors for each block. Must be shape (T, L, 2), where L is the number of blocks in each frame
+        block_residuals (torch.Tensor): The tensor storing the residuals for each block. Must be shape (T, L, block_width * block_width), where L is the number of blocks in each frame
         plane (torch.Tensor): The unprocessed frame. Will be used to store the i-frames as themselves instead of processed blocks.
         i_frame_indices (torch.Tensor): The indices of the i-frames
         original_plane_h (int): The original height of the plane.
@@ -55,36 +55,55 @@ def serialize_payload(num_motion_blocks_per_frame: int,
     Returns:
         bytes: _description_
     """
-    payload = bytes()
+    # Stores pointers to the numpy arrays containing motion vectors and block residuals.
+    payload = []
 
-    payload += original_plane_h.to_bytes(4,  signed=False)             # uint32 the height of the video
-    payload += original_plane_w.to_bytes(4,  signed=False)             # uint32 the width of the video
-    payload += num_motion_blocks_per_frame.to_bytes(4, signed=False)   # uint32 the number of motion blocks in each video frame
+    # This payload = [] and the payload = b"".join(payload) line at the end might seem strange at first, but it's a neat trick I learned in this project. 
+    # Using a bytes() object and appending bytes to it with += causes python to allocate a brand new array in memory with
+    # the exact size of the new array and then copy everything to it, which is slow.
 
+    # Using a bytearray() and calling .extend() on it is much better, because bytearrays over-allocate
+    # on purpuse and can avoid the slow copies by just using the empty over-allocated segments until
+    # they're full. But they still copy the entire data when the bytearray gets full and need to
+    # allocate a new one.
 
-    # TODO this block is killing performance. I thought about serializing dx, dy and residue right inside block_matching, but that was also killing performance
-    # because it was sending each block to the GPU sequentially, which is too slow. Maybe look into a way of writing the serialized dx, dy and residue values
-    # into the GPU itself and then send it all back to the CPU at once. Not even as a byte array, maybe just concat the tensors on top of each other and then
-    # send everything to the CPU at once instead of individually. This can be done inside block_matching.py
+    # But if I use a list and call .append() on the bytes() objects created with .tobytes(), so python allocates each of those in memory,
+    # but append their memory addresses to the list, not their data itself! So it's not actually copying
+    # entire frames worth of data, but a bunch of 8-byte memory addresses into the list, which requires many less memory copies!
+
+    # Then, when I call "".join(payload) at the end, it pre-allocates the EXACT number of bytes needed in memory
+    # and finally copies all those byte sequences the pointers point to into the b"" bytes object.
+
+    payload.append(original_plane_h.to_bytes(4,  signed=False))             # uint32 the height of the video
+    payload.append(original_plane_w.to_bytes(4,  signed=False))             # uint32 the width of the video
+    
+    num_motion_blocks_per_frame = len(block_residuals[1])
+    payload.append(num_motion_blocks_per_frame.to_bytes(4, signed=False))   # uint32 the number of motion blocks in each video frame
+
+    motion_vectors_np = motion_vectors.cpu().numpy()
+    residue_blocks_np = block_residuals.cpu().numpy()
+    
     for frame_idx, frame in enumerate(plane):
-        print(f"Serializing frame {frame_idx}")
-        # If frame is an I-frame, store it as-is
+        # If the frame is an I-frame, store it as-is
         if frame_idx in i_frame_indices:
-            payload += frame.to(torch.uint8).cpu().numpy().tobytes()
+            payload.append(frame.to(torch.uint8).cpu().numpy().tobytes())
 
         # If not, store its motion blocks
         else:
-            block_movements = motion_blocks[frame_idx]
-            for block in block_movements:
-                dx, dy, residue = block
+            frame_motion_vectors = motion_vectors_np[frame_idx]
+            frame_residue_blocks = residue_blocks_np[frame_idx]
+
+            for blockId in range(num_motion_blocks_per_frame):
+                dx, dy = frame_motion_vectors[blockId]
                 
-                # int8 is fine for storing the motion vectors because the search_window parameter is small (usually < 10).
-                # So this value is always in the [-10, 10] interval.
-                # A 127 search window is also unrealistic because it would take years to encode the video
-                # even on the best codecs. So int8 it is.
-                payload += int(dx).to_bytes(1, signed=True)  # int8 the block's horizontal motion. 
+                payload.append(frame_motion_vectors[blockId].tobytes())
 
-                payload += int(dy).to_bytes(1, signed=True)  # uint8 the block's vertical motion.
-                payload += residue.to(torch.uint8).cpu().numpy().tobytes() # uint8 the stored residuals
+                # If there is no movement (dx == 0 and dy == 0), skip this block. 
+                # If there is movement, save it to the payload!
+                if (dx != 0) or (dy != 0):
+                    payload.append(frame_residue_blocks[blockId].tobytes())
+    
 
+    # pre-allocate the exact number of bytes needed and write the full payload to it.
+    payload = b"".join(payload)
     return payload
