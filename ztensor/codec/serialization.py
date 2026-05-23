@@ -212,8 +212,9 @@ def deserialize_payload(compressed_bytes: bytes, device: torch.device):
             'residual_blocks': residual_blocks,
             'original_h': original_plane_h,
             'original_w': original_plane_w,
+            'padded_h': padded_plane_h,
+            'padded_w': padded_plane_w,
+            'block_width': block_width
         })
     
-    raise Exception
-
-    return all_planes_data, i_frame_indices, pixel_format
+    return all_planes_data, i_frame_set, pixel_format

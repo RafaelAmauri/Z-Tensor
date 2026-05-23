@@ -93,7 +93,7 @@ def block_matching(plane, block_width, search_radius, i_frame_indices):
         if frame_idx in i_frame_indices:
             continue
 
-        if True:
+        if DEBUG:
             print(f"Processing: Frame{frame_idx}")
 
         # Stores the dx and dy motion vectors and the residuals that will be used for reconstruction.
@@ -157,3 +157,37 @@ def block_matching(plane, block_width, search_radius, i_frame_indices):
             
 
     return motion_vectors, block_residuals
+
+
+
+def deconstruct_block_matching(planes, i_frame_indices):
+    planes_decoded = []
+
+    for plane_id in range(len(planes)):
+        frames                      = planes[plane_id]['frames']
+        motion_vectors              = planes[plane_id]['motion_vectors']
+        residual_blocks             = planes[plane_id]['residual_blocks']
+        original_height             = planes[plane_id]['original_h']
+        original_width              = planes[plane_id]['original_w']
+        padded_height               = planes[plane_id]['padded_h']
+        padded_width                = planes[plane_id]['padded_w']
+        block_width                 = planes[plane_id]['block_width']
+        num_frames, num_blocks, num_elements_per_block = planes[plane_id]['residual_blocks'].shape
+        blocks_in_plane_width  = padded_width // block_width
+
+        for frame_idx in range(1, num_frames):
+            if frame_idx in i_frame_indices:
+                continue
+            
+            for block_id in range(num_blocks):
+                block_coords = patchId2Coords(block_id, block_width, blocks_in_plane_width)
+                
+                current_x, current_y = block_coords
+                dx, dy               = motion_vectors[frame_idx][block_id]
+                residue              = residual_blocks[frame_idx][block_id].reshape(block_width, block_width)
+                frames[frame_idx][current_y : current_y + block_width, current_x : current_x + block_width] = frames[frame_idx-1][current_y + dy : current_y +dy +block_width, current_x + dx : current_x + dx + block_width] + residue
+        
+        frames = frames[:, : original_height, : original_width]
+        planes_decoded.append(frames)
+
+    return planes_decoded
