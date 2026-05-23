@@ -40,7 +40,7 @@ def run_fidelity_check(video_path, device, memory_budget, compression_factor, nu
         s = ssim(original_frame, decoded_frame, channel_axis=2, data_range=255)
         ssim_values.append(s)
 
-    return np.mean(psnr_values), np.mean(ssim_values), original_video.nbytes // 1_000_000, len(encoded_video) // 1_000_000
+    return np.mean(psnr_values), np.mean(ssim_values), original_video.nbytes / (1024 * 1024), len(encoded_video) / (1024 * 1024)
 
 
 def test_codec_fidelity(args):
@@ -49,7 +49,7 @@ def test_codec_fidelity(args):
         videos = [ args.input_video ]
     else:
         test_dir = "./test_videos/"
-        videos   = [ os.path.join(test_dir, f) for f in os.listdir(test_dir) if f.endswith(('.avi'))]
+        videos   = sorted([ os.path.join(test_dir, f) for f in os.listdir(test_dir) if f.endswith(('.avi'))])
 
 
     print(f"{'Video Source':<30} | {'PSNR score (dB)':<20} | {'SSIM score':<20} | {'Size Original (MB)':<20} | {'Size Z-Tensor Encoded (MB)':<20}")
