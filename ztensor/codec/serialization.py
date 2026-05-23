@@ -37,13 +37,26 @@ def serialize_header(pixel_format: str,
     return header
 
 
-def serialize_payload(motion_blocks, plane, i_frame_indices, original_plane_h, original_plane_w):
+def serialize_payload(num_motion_blocks_per_frame: int, 
+                      motion_blocks: dict, 
+                      plane: torch.Tensor, 
+                      i_frame_indices: torch.Tensor, 
+                      original_plane_h: int, 
+                      original_plane_w: int):
+    
     payload = bytes()
 
     payload += original_plane_w.to_bytes(4,  signed=False)             # uint32 the height of the video
     payload += original_plane_h.to_bytes(4,  signed=False)             # uint32 the width of the video
+    payload += num_motion_blocks_per_frame.to_bytes(4, signed=False)   # uint32 the number of motion blocks in each video frame
 
+
+    # TODO this block is killing performance. I thought about serializing dx, dy and residue right inside block_matching, but that was also killing performance
+    # because it was sending each block to the GPU sequentially, which is too slow. Maybe look into a way of writing the serialized dx, dy and residue values
+    # into the GPU itself and then send it all back to the CPU at once. Not even as a byte array, maybe just concat the tensors on top of each other and then
+    # send everything to the CPU at once instead of individually. This can be done inside block_matching.py
     for frame_idx, frame in enumerate(plane):
+        print(f"Serializing frame {frame_idx}")
         # If frame is an I-frame, store it as-is
         if frame_idx in i_frame_indices:
             payload += frame.to(torch.uint8).cpu().numpy().tobytes()
@@ -51,15 +64,16 @@ def serialize_payload(motion_blocks, plane, i_frame_indices, original_plane_h, o
         # If not, store its motion blocks
         else:
             block_movements = motion_blocks[frame_idx]
-            payload += len(block_movements).to_bytes(4, signed=False) # uint32 the number of blocks in the frame
             for block in block_movements:
-                dx, dy, residual = block
+                dx, dy, residue = block
                 
-                payload += int(dx).to_bytes(1, signed=True)  # int8 the block's horizontal motion. int8 is fine because the 
-                                                             # search_window parameter is small (usually < 10). So this value is always in 
-                                                             # the [-10, 10] interval
+                # int8 is fine for storing the motion vectors because the search_window parameter is small (usually < 10).
+                # So this value is always in the [-10, 10] interval.
+                # A 127 search window is also unrealistic because it would take years to encode the video
+                # even on the best codecs. So int8 it is.
+                payload += int(dx).to_bytes(1, signed=True)  # int8 the block's horizontal motion. 
 
                 payload += int(dy).to_bytes(1, signed=True)  # uint8 the block's vertical motion.
-                payload += residual.to(torch.uint8).cpu().numpy().tobytes() # uint8 the stored residuals
+                payload += residue.to(torch.uint8).cpu().numpy().tobytes() # uint8 the stored residuals
 
     return payload
