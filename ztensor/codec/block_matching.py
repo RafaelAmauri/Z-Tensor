@@ -60,7 +60,7 @@ def get_candidate_patches(current_coords, search_radius, block_width, w, h):
     return patchIds_compare_to_in_prev_frame
 
 
-def block_matching(plane, block_width, search_radius):
+def block_matching(plane, block_width, search_radius, i_frame_indices):
     DEBUG = False
 
     device                 = plane.device
@@ -90,6 +90,9 @@ def block_matching(plane, block_width, search_radius):
     block_residuals = torch.zeros((num_frames, num_blocks_per_frame, residue_size), dtype=torch.uint8).to(device)
 
     for frame_idx in range(1, num_frames):
+        if frame_idx in i_frame_indices:
+            continue
+
         if True:
             print(f"Processing: Frame{frame_idx}")
 
@@ -109,6 +112,7 @@ def block_matching(plane, block_width, search_radius):
             print(f"Plane shape: {plane.shape}, Blocks Plane0 shape: {blocks_plane0.shape}, Blocks Plane1 shape: {blocks_plane1.shape}")
             print(f"Blocks in plane width: {blocks_in_plane_width}, Blocks in plane height: {blocks_in_plane_height}")
         
+
         # Loop over every block_width x block_width patch with stride block_width
         for patchId in range(len(blocks_plane1)):
             # pixel coordinates are always the TOP LEFT CORNER pixel! It's a simple 2-digit tuple because ince all blocks have width <block_width> 

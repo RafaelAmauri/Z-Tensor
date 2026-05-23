@@ -6,11 +6,14 @@ import numpy as np
 import torch.nn.functional as F
 
 from ztensor.effects import chroma, quantization
+from ztensor.codec import serialization
 
 
 def decode_video(compressed_bytes: bytes, device: torch.device) -> torch.Tensor:
-    planes, i_frame_indices, pixel_format = decompress_video(compressed_bytes, device)
+    planes, i_frame_indices, pixel_format = serialization.deserialize_payload(compressed_bytes, device)
 
+    print(planes)
+    raise NotImplementedError
     scene_boundaries = i_frame_indices.tolist()
     scene_boundaries.append(len(planes[0])) # Append the idx of the last frame to the list to use it as the scene_end variable for the last iteration of the loop below
 
@@ -54,54 +57,3 @@ def decode_video(compressed_bytes: bytes, device: torch.device) -> torch.Tensor:
 
     return video
 
-
-def decompress_video(compressed_bytes: bytes, device: torch.device) -> typing.Tuple[typing.List[torch.Tensor], torch.Tensor, str]:
-    decompressed_bytes = zstandard.decompress(compressed_bytes)
-    current_byte = 0
-
-    pixel_format  = decompressed_bytes[current_byte : current_byte+4].decode('ascii')
-    current_byte += 4
-
-    quantization_parameter = int.from_bytes(decompressed_bytes[current_byte : current_byte+1], signed=False)
-
-    datatype_format_np    = np.int8      if quantization_parameter in [1] else np.uint8
-    datatype_format_torch = torch.int8   if quantization_parameter in [1] else torch.uint8
-    num_bytes_per_pixel   = 1
-
-    current_byte         += 1
-
-    num_planes    = int.from_bytes(decompressed_bytes[current_byte : current_byte+1], signed=False)
-    current_byte += 1
-
-    num_i_frames  = int.from_bytes(decompressed_bytes[current_byte : current_byte+4], signed=False)
-    current_byte += 4
-
-
-    i_frame_indices = np.frombuffer(decompressed_bytes[current_byte : current_byte + (num_i_frames*4)], dtype=np.uint32).copy() # we create a copy because torch asks for a writeable copy of the bytearray, not a read-only memory view of it.
-    i_frame_indices = torch.as_tensor(i_frame_indices, dtype=torch.uint32, device=device)
-    current_byte   += num_i_frames*4
-
-    plane_shapes = []
-    for _ in range(num_planes):
-        shape       = np.frombuffer(decompressed_bytes[current_byte : current_byte + 12], dtype=np.int32)
-        current_byte += 12
-
-        plane_shapes.append(shape)
-
-    planes = []
-    for shape in plane_shapes:
-        plane_len     = np.prod(shape) * num_bytes_per_pixel # The number of bytes that the current plan has.
-        plane         = np.frombuffer(decompressed_bytes[current_byte : current_byte + plane_len], dtype=datatype_format_np).copy()
-        plane         = torch.as_tensor(plane, dtype=datatype_format_torch, device=device).reshape(tuple(shape))
-        
-        if quantization_parameter in [1]:
-            plane   = quantization.dequantize(plane, quantization_parameter)
-
-        current_byte += plane_len
-
-        if quantization_parameter not in [1]:
-            plane = plane.to(torch.uint8)
-
-        planes.append(plane)
-
-    return planes, i_frame_indices, pixel_format
