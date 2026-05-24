@@ -157,12 +157,12 @@ def block_matching(plane, block_width, search_radius, i_frame_indices):
 
 
 
-def deconstruct_block_matching(planes, i_frame_indices):
+def deconstruct_block_matching(planes, i_frame_indices, device):
     planes_decoded = []
     for plane_id in range(len(planes)):
-        frames                      = planes[plane_id]['frames'].cuda()
-        motion_vectors              = planes[plane_id]['motion_vectors'].cuda()
-        residual_blocks             = planes[plane_id]['residual_blocks'].cuda()
+        frames                      = planes[plane_id]['frames'].to(device)
+        motion_vectors              = planes[plane_id]['motion_vectors'].to(device)
+        residual_blocks             = planes[plane_id]['residual_blocks'].to(device)
         original_height             = planes[plane_id]['original_h']
         original_width              = planes[plane_id]['original_w']
         padded_height               = planes[plane_id]['padded_h']
@@ -178,30 +178,30 @@ def deconstruct_block_matching(planes, i_frame_indices):
             
             # The patch ids for each block
             # shape: (num_blocks_in_plane1,)
-            patch_ids_for_patches_in_plane1 = torch.arange(num_blocks).cuda()
+            patch_ids_for_patches_in_plane1 = torch.arange(num_blocks).to(device)
 
             # The coordinate version of those patches
             # shape: (num_blocks_in_plane1, 2)
-            coords_for_patches_in_plane1    = patchId2Coords(patch_ids_for_patches_in_plane1, block_width, blocks_in_plane_width).cuda()
+            coords_for_patches_in_plane1    = patchId2Coords(patch_ids_for_patches_in_plane1, block_width, blocks_in_plane_width)
 
             y_coords_for_patches_in_plane1  = coords_for_patches_in_plane1[..., 1]
             x_coords_for_patches_in_plane1  = coords_for_patches_in_plane1[..., 0]
-            coords_offsets                  = torch.arange(block_width).cuda()
+            coords_offsets                  = torch.arange(block_width).to(device)
 
             # The coordinates of the patches in the height axis
             # shape: (num_blocks_in_plane1, block_width, 1)
-            y_patches = y_coords_for_patches_in_plane1[:, None, None] + coords_offsets[None, :, None].cuda()
+            y_patches = y_coords_for_patches_in_plane1[:, None, None] + coords_offsets[None, :, None]
 
             # The coordinates of the patches in the width axis
             # shape: (num_blocks_in_plane1, 1, block_width)
-            x_patches = x_coords_for_patches_in_plane1[:, None, None] + coords_offsets[None, None, :].cuda()
+            x_patches = x_coords_for_patches_in_plane1[:, None, None] + coords_offsets[None, None, :]
 
             # The motion vectors
             # shapes: (num_blocks_in_plane1, 1, 1)
-            dy = motion_vectors[frame_idx, :, 1][:, None, None].cuda()
-            dx = motion_vectors[frame_idx, :, 0][:, None, None].cuda()
+            dy = motion_vectors[frame_idx, :, 1][:, None, None]
+            dx = motion_vectors[frame_idx, :, 0][:, None, None]
             
-            residue = residual_blocks[frame_idx].reshape(num_blocks, block_width, block_width).cuda()
+            residue = residual_blocks[frame_idx].reshape(num_blocks, block_width, block_width).to(device)
 
             frames[frame_idx, y_patches, x_patches] = frames[frame_idx-1, y_patches+dy, x_patches+dx] + residue
 

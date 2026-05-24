@@ -12,7 +12,7 @@ from ztensor.codec import serialization, block_matching
 def decode_video(compressed_bytes: bytes, device: torch.device) -> torch.Tensor:
     planes, i_frame_indices, pixel_format = serialization.deserialize_payload(compressed_bytes, device)
 
-    planes_decoded = block_matching.deconstruct_block_matching(planes, i_frame_indices)
+    planes_decoded = block_matching.deconstruct_block_matching(planes, i_frame_indices, device)
 
     if pixel_format in ['I422', 'I420']: # This means the video is chroma subsampled, so we need to interpolate the U and V channels to be the same dimension as the Y channel
         y_tensor   = planes_decoded[0].unsqueeze(1).float()
