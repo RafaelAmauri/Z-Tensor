@@ -5,7 +5,7 @@ import zstandard
 import numpy as np
 import torch.nn.functional as F
 
-from ztensor.effects import chroma, quantization
+from ztensor.effects import chroma
 from ztensor.codec import serialization, block_matching
 
 

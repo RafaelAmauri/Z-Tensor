@@ -82,7 +82,7 @@ def block_matching(plane, block_width, search_radius, i_frame_indices):
     
     # Pre-allocate these two into memory. 
     motion_vectors  = torch.zeros((num_frames, num_blocks_per_frame, 2),            dtype=torch.int8).to(device)
-    block_residuals = torch.zeros((num_frames, num_blocks_per_frame, residue_size), dtype=torch.uint8).to(device)
+    block_residuals = torch.zeros((num_frames, num_blocks_per_frame, residue_size), dtype=torch.int16).to(device)
 
     for frame_idx in range(1, num_frames):
         if frame_idx in i_frame_indices:
@@ -171,6 +171,11 @@ def deconstruct_block_matching(planes, i_frame_indices, device):
         num_frames, num_blocks, num_elements_per_block = planes[plane_id]['residual_blocks'].shape
         blocks_in_plane_width  = padded_width // block_width
         
+        is_lossy = residual_blocks.dtype == torch.int16
+        if is_lossy:
+            frames = frames.to(torch.int16)
+        else:
+            frames = frames.to(torch.uint8)
         
         for frame_idx in range(1, num_frames):
             if frame_idx in i_frame_indices:
@@ -202,9 +207,12 @@ def deconstruct_block_matching(planes, i_frame_indices, device):
             dx = motion_vectors[frame_idx, :, 0][:, None, None]
             
             residue = residual_blocks[frame_idx].reshape(num_blocks, block_width, block_width).to(device)
-
-            frames[frame_idx, y_patches, x_patches] = frames[frame_idx-1, y_patches+dy, x_patches+dx] + residue
-
+            
+            # Clamping prevents modulo problems when adding these up
+            if is_lossy:
+                frames[frame_idx, y_patches, x_patches] = (frames[frame_idx-1, y_patches+dy, x_patches+dx] + residue).clamp(0, 255)
+            else:
+                frames[frame_idx, y_patches, x_patches] = frames[frame_idx-1, y_patches+dy, x_patches+dx] + residue
 
         frames = frames[:, : original_height, : original_width]
         frames = frames.to(torch.uint8)

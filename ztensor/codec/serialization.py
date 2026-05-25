@@ -1,7 +1,9 @@
 import torch
-import typing
 import zstandard
 import numpy as np
+
+from typing import Tuple, List, Dict, Set
+
 
 from ztensor.effects import quantization
 
@@ -46,7 +48,8 @@ def serialize_payload(motion_vectors: torch.Tensor,
                       original_plane_h: int, 
                       original_plane_w: int,
                       padded_plane_h: int,
-                      padded_plane_w: int) -> bytes:
+                      padded_plane_w: int,
+                      ) -> bytes:
     """Serialize the payload of the encoded video
 
     Args:
@@ -60,6 +63,7 @@ def serialize_payload(motion_vectors: torch.Tensor,
     Returns:
         bytes: _description_
     """
+
     # Stores pointers to the numpy arrays containing motion vectors and block residuals.
     payload = []
 
@@ -89,8 +93,8 @@ def serialize_payload(motion_vectors: torch.Tensor,
     num_motion_blocks_per_frame = block_residuals.shape[1]
     payload.append(num_motion_blocks_per_frame.to_bytes(4, signed=False))   # uint32 the number of motion blocks in each video frame
 
-    motion_vectors_np = motion_vectors.cpu().numpy().astype(np.int8)
-    residue_blocks_np = block_residuals.cpu().numpy().astype(np.uint8)
+    motion_vectors_np = motion_vectors.cpu().numpy()
+    residue_blocks_np = block_residuals.cpu().numpy()
 
     for frame_idx, frame in enumerate(plane):
         # If the frame is an I-frame, store it as-is
@@ -124,7 +128,16 @@ def serialize_payload(motion_vectors: torch.Tensor,
 
 
 
-def deserialize_payload(compressed_bytes: bytes, device: torch.device):
+def deserialize_payload(compressed_bytes: bytes, device: torch.device) -> Tuple[List[Dict], Set, str]:
+    """Decodes the video's entire byte sequence
+
+    Args:
+        compressed_bytes (bytes): The compressed bytes
+        device (torch.device): Where to move the motion vectors, block residuals and frames to
+
+    Returns:
+        _type_: _description_
+    """
     decompressed_bytes = zstandard.decompress(compressed_bytes)
     current_byte = 0
 
@@ -134,8 +147,8 @@ def deserialize_payload(compressed_bytes: bytes, device: torch.device):
     quantization_parameter = int.from_bytes(decompressed_bytes[current_byte : current_byte+1], signed=False)
     current_byte          += 1
 
-    datatype_format_np    = np.int8      if quantization_parameter in [1] else np.uint8
-    datatype_format_torch = torch.int8   if quantization_parameter in [1] else torch.uint8
+    datatype_residues_np    = np.int8      if quantization_parameter in [1] else np.uint8
+    datatype_residues_torch = torch.int16  if quantization_parameter in [1] else torch.uint8
     num_bytes_per_pixel   = 1
 
     num_i_frames  = int.from_bytes(decompressed_bytes[current_byte : current_byte+4], signed=False)
@@ -155,7 +168,7 @@ def deserialize_payload(compressed_bytes: bytes, device: torch.device):
     current_byte += 4
 
     all_planes_data = []
-    for plane_idx in range(num_planes):
+    for _ in range(num_planes):
         original_plane_h = int.from_bytes(decompressed_bytes[current_byte : current_byte+4], signed=False)
         current_byte    += 4
         original_plane_w = int.from_bytes(decompressed_bytes[current_byte : current_byte+4], signed=False)
@@ -174,15 +187,15 @@ def deserialize_payload(compressed_bytes: bytes, device: torch.device):
         bytes_per_frame        = padded_plane_h * padded_plane_w * num_bytes_per_pixel
         bytes_per_motion_block = num_elements_per_motion_block * 1 # 1 because 
         
-        frames = torch.zeros((num_frames, padded_plane_h, padded_plane_w),                                      dtype=torch.uint8)
-        residual_blocks = torch.zeros((num_frames, num_motion_blocks_per_frame, num_elements_per_motion_block), dtype=torch.uint8)
+        frames          = torch.zeros((num_frames, padded_plane_h, padded_plane_w),                             dtype=torch.int16)
+        residual_blocks = torch.zeros((num_frames, num_motion_blocks_per_frame, num_elements_per_motion_block), dtype=datatype_residues_torch)
         motion_vectors  = torch.zeros((num_frames, num_motion_blocks_per_frame, 2),                             dtype=torch.int8)
 
         i_frame_set = set(i_frame_indices.cpu().tolist())
         for frame_idx in range(num_frames):
-            #print(f"Frame id: {frame_idx}")
+
             if frame_idx in i_frame_set:
-                reconstructed_i_frame = np.frombuffer(decompressed_bytes[current_byte : current_byte + bytes_per_frame], dtype=datatype_format_np).copy().reshape((padded_plane_h, padded_plane_w))
+                reconstructed_i_frame = np.frombuffer(decompressed_bytes[current_byte : current_byte + bytes_per_frame], dtype=np.uint8).copy().reshape((padded_plane_h, padded_plane_w))
                 reconstructed_i_frame = torch.as_tensor(reconstructed_i_frame, device=frames.device)
                 frames[frame_idx]     = reconstructed_i_frame
                 current_byte         += bytes_per_frame
@@ -198,14 +211,23 @@ def deserialize_payload(compressed_bytes: bytes, device: torch.device):
                         dy            = int.from_bytes(decompressed_bytes[current_byte : current_byte + 1], signed=True)
                         current_byte += 1
 
-                        residue       = np.frombuffer(decompressed_bytes[current_byte : current_byte + bytes_per_motion_block], dtype=datatype_format_np).copy()
+                        
+                        residue       = np.frombuffer(decompressed_bytes[current_byte : current_byte + bytes_per_motion_block], dtype=datatype_residues_np).copy()
                         current_byte += bytes_per_motion_block
 
                         motion_vectors[frame_idx][block_id]  = torch.as_tensor([dx, dy], dtype=torch.int8)
-                        residual_blocks[frame_idx][block_id] = torch.as_tensor(residue,  dtype=torch.uint8)
+                        residual_blocks[frame_idx][block_id] = torch.as_tensor(residue,  dtype=datatype_residues_torch)
                     else:
                         motion_vectors[frame_idx][block_id]  = torch.as_tensor([0, 0], dtype=torch.int8)
-                        residual_blocks[frame_idx][block_id] = torch.as_tensor([ 0 ] * num_elements_per_motion_block,  dtype=torch.uint8)
+                        residual_blocks[frame_idx][block_id] = torch.as_tensor([ 0 ] * num_elements_per_motion_block,  dtype=datatype_residues_torch)
+
+
+        if quantization_parameter in [1]:
+            residual_blocks = quantization.dequantize(residual_blocks, quantization_parameter)
+        
+        frames          = frames.to(device)
+        residual_blocks = residual_blocks.to(device)
+        motion_vectors  = motion_vectors.to(device)
 
         all_planes_data.append({
             'frames': frames,                 # I-frame slots filled, P-frame slots zero

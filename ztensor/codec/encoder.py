@@ -9,25 +9,29 @@ from ztensor.codec import block_matching, padding, serialization
 from ztensor.effects import quantization
 
 
-def encode_video(planes: List[torch.Tensor], i_frame_indices: torch.Tensor, compression_factor: int, num_threads: int, pixel_format: str, quantization_parameter: int) -> bytes:
+def encode_video(planes: List[torch.Tensor], 
+                 i_frame_indices: torch.Tensor, 
+                 compression_factor: int, 
+                 num_threads: int, 
+                 pixel_format: str, 
+                 quantization_parameter: int,
+                 block_width: int,
+                 search_window: int
+                 ) -> bytes:
 
     serialized_video = []
 
-    block_width   = 8
-    search_window = 8
-
     num_planes = len(planes)
     num_frames = len(planes[0]) # All planes have the same number of frames, so just take this info from the first plane
-    header  = serialization.serialize_header(pixel_format, 
-                                             quantization_parameter, 
-                                             i_frame_indices, 
-                                             block_width, 
-                                             num_frames,
-                                             num_planes)
+    header     = serialization.serialize_header(pixel_format, 
+                                                quantization_parameter, 
+                                                i_frame_indices, 
+                                                block_width, 
+                                                num_frames,
+                                                num_planes)
     serialized_video.append(header)
 
     for plane_tensor in planes:
-        # Cast to int16 to calculate P-frames. Since the P-frames are only integer values, int16 will do just fine.
         plane_tensor  = plane_tensor.to(torch.int16)
 
         _, original_plane_h, original_plane_w = plane_tensor.shape
@@ -37,8 +41,7 @@ def encode_video(planes: List[torch.Tensor], i_frame_indices: torch.Tensor, comp
 
         motion_vectors, block_residuals = block_matching.block_matching(plane_tensor, block_width, search_window, i_frame_indices)
 
-        # TODO figure out why this isn't working
-        if False:#quantization_parameter:
+        if quantization_parameter:
             block_residuals = quantization.quantize(block_residuals, quantization_parameter).to(torch.int8)
         else:
             block_residuals = block_residuals.to(torch.uint8)
