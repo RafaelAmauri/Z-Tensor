@@ -1,8 +1,6 @@
 import os
-import warnings
 import numpy as np
 
-from skimage.metrics import peak_signal_noise_ratio as psnr
 from skimage.metrics import structural_similarity as ssim
 
 from ztensor.pipeline import pipeline
@@ -23,24 +21,17 @@ def run_fidelity_check(video_path, device, memory_budget, compression_factor, nu
     original_video = original_video.cpu().numpy().astype(np.uint8)
     decoded_video  = decoded_video.cpu().numpy().astype(np.uint8)
 
-    psnr_values = []
+    mse = np.mean((original_video.astype(np.float64) - decoded_video.astype(np.float64)) ** 2)
+    avg_psnr = float('inf') if mse == 0 else 10 * np.log10(255**2 / mse)
+
     ssim_values = []
-
     for i in range(len(original_video)):
-        original_frame = original_video[i]
-        decoded_frame  = decoded_video[i]
-
-        # In lossless compression, the MSE component of the PSNR metric is always 0, and this triggers a division by zero warning.
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore', category=RuntimeWarning)
-            p = psnr(original_frame, decoded_frame, data_range=255)
-
-        psnr_values.append(p)
-
-        s = ssim(original_frame, decoded_frame, channel_axis=2, data_range=255)
+        s = ssim(original_video[i], decoded_video[i], channel_axis=2, data_range=255)
         ssim_values.append(s)
 
-    return np.mean(psnr_values), np.mean(ssim_values), original_video.nbytes / (1024 * 1024), len(encoded_video) / (1024 * 1024)
+    avg_ssim = np.mean(ssim_values)
+
+    return avg_psnr, avg_ssim, original_video.nbytes / (1024 * 1024), len(encoded_video) / (1024 * 1024)
 
 
 def test_codec_fidelity(args):
