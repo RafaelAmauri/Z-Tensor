@@ -19,14 +19,12 @@ def encode_pipeline(input_path: str,
     video_bgr         = video.read_video(input_path).to(device)
     video_grayscale   = video.bgr_to_grayscale(video_bgr)
 
-    blurred_grayscale = blur.blur_video(video_grayscale)
-    blurred_histogram = histogram.video_histogram(blurred_grayscale, memory_budget)
+    video_histogram   = histogram.video_histogram(video_grayscale, memory_budget)
 
-    video_edges       = edge_detect.sobel(blurred_grayscale)
+    video_edges       = edge_detect.sobel(video_grayscale)
 
-    troi_slices       = histogram.temporal_region_of_interest(blurred_histogram)
+    troi_slices       = histogram.temporal_region_of_interest(video_histogram)
     i_frame_indices   = i_frames.select_i_frames(video_edges, troi_slices)
-
 
     if chroma_subsample == 'quarter':
         video_yuv         = chroma.bgr2yuv(video_bgr)

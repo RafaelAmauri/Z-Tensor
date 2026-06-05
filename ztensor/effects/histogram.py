@@ -51,8 +51,8 @@ def temporal_region_of_interest(video_histogram: torch.Tensor) -> typing.List[to
 
     histogram_deltas = torch.diff(video_histogram, dim=0).abs().mean(dim=-1)
 
-    # Threshold is 1.5 standard deviations to the right of the mean.
-    threshold      = torch.mean(histogram_deltas, dim=-1) + (torch.std(histogram_deltas, dim=-1) * 1)
+    # Threshold is 3 standard deviations to the right of the mean.
+    threshold      = torch.mean(histogram_deltas, dim=-1) + (torch.std(histogram_deltas, dim=-1) * 3)
     
     # The left and right neighbors are used to filter for the local peaks. It fixes a subsequent selection of 
     left_neighbor  = F.pad(histogram_deltas[:-1], (1,0), value=float('inf'))
