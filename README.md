@@ -206,7 +206,7 @@ near scene cut)        │      near scene cut)
 
 ### Chroma Subsampling
 
-Human eyes are much more sensitive to changes in brightness than to changes in color. Chroma subsampling is a pretty interesting technique that requires two steps: first it converts an RGB image into a YUV image, where Y is the brightness component and U and V are the two chromatic components that carry color information. Then, it takes advantage of how human eyes work and drops the resolution of the U and V channels to save on disk space. This is naturally a lossy operation, but in practice it loses so little detail that it is near unnoticeable to our eyes.
+Human eyes are much more sensitive to changes in brightness than to changes in color. Chroma subsampling is a pretty interesting technique that requires two steps: first it converts an RGB image into a YUV image, where Y is the brightness component and U and V are the two chromatic components that carry color information. Then, it takes advantage of how human eyes work and drops the resolution of the U and V channels to save on disk space. This is naturally a lossy operation, but in practice it loses so little detail that it is nearly unnoticeable to our eyes.
 
 There are different ways to implement this drop in resolution, with the most common approaches being called 4:2:2 (also called half-width) and 4:2:0 (also called quarter). 4:2:2 halves the resolution on the horizontal axis, while keeping the Y resolution the same. Meanwhile, 4:2:0 halves the resolution of both horizontal and vertical axes, making the final resolution a quarter of the original.
 
