@@ -7,7 +7,7 @@
 
 ### My Custom-Made Hardware-Accelerated Video Codec built from scratch in PyTorch. No FFmpeg. No libav. No shortcuts.
 
-Z-Tensor encodes raw videos using **motion estimation**, **scene-aware I-frame selection**, **chroma subsampling**, and **Zstandard compression**. Every step runs as a native tensor operation, and the whole pipeline can run on CPU or GPU. Lossless and lossy modes are both supported.
+Z-Tensor is an experimental codec I built from scratch. Every step runs as a native tensor operation, and the whole pipeline can run on CPU or GPU. Lossless and lossy modes are both supported. It features block matching motion estimation, a custom scene-aware I-frame selection logic, chroma subsampling and Zstandard compression.
 
 The name comes from its two main components: **Z** from Zstandard, which is used as the compressor, while **Tensor** comes from PyTorch Tensors because every pixel-level operation runs as a tensor op, keeping the heavy lifting on the GPU and out of Python loops.
 
@@ -24,6 +24,12 @@ Because I like building efficient systems and optimizing my own code to run fast
 PyTorch turned out to be a surprisingly good library for this project. Tensor ops can run on the GPU, which makes writing GPU-accelerated code pretty easy as long as you can do everything in tensors. Also, some of the features I implemented like chroma subsampling, block matching and keyframe detection benefit a lot from PyTorch's functions. For example: `F.conv2d` can be used as a convolution operator for running batched edge detection, `nn.Unfold` can be used to generate frame-wise sliding windows of variable sizes for block matching, and `AvgPool2d` can be used for chroma subsampling, since chroma subsampling is literally just an average pooling! 
 
 This showed me an alternative side of PyTorch that very few people consider when they're using it. Also, if I ever want to use AI for Neural Compression for example, Torch is already installed and I can easily integrate these AI models with the existing code.
+
+--- 
+
+## Disclaimer
+
+This is an experimental codec, not a production replacement for H.264, H.265 or AV1!
 
 ---
 
