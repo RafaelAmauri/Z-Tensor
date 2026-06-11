@@ -20,9 +20,10 @@ def run_fidelity_check(video_path, device, memory_budget, compression_factor, nu
     original_video = original_video.cpu().numpy().astype(np.uint8)
 
     # Wait until the original video goes to the CPU.
-    with torch.cuda.device(device):
-        torch.cuda.synchronize()
-        torch.cuda.empty_cache()
+    if device.type == "cuda":
+        with torch.cuda.device(device):
+            torch.cuda.synchronize()
+            torch.cuda.empty_cache()
 
     decoded_video = pipeline.decode_pipeline(encoded_video, device)
     
