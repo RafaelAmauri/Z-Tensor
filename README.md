@@ -66,13 +66,14 @@ Tested on standard CIF/QCIF benchmark videos:
 
 ### Balanced Mode (`--chroma quarter -qp 0`)
 
+**Quality reference:** PSNR above 40 dB and SSIM near 1.0 indicate very high fidelity reconstruction.
+
 | Video | PSNR (dB) | SSIM | Original | Z-Tensor | Compression |
 |---|---|---|---|---|---|
 | bowing_cif.avi | 44.82 | 1.00 | 87.0 MB | 16.2 MB | **5.4×** |
 | bus_cif.avi | 40.89 | 1.00 | 43.5 MB | 12.5 MB | **3.5×** |
 | carphone_qcif.avi | 40.62 | 0.99 | 27.7 MB | 6.9 MB | **4.0×** |
 
-**Quality reference:** PSNR above 40 dB and SSIM near 1.0 indicate very high fidelity reconstruction.
 
 
 ### Lossless (`--chroma full -qp 0`)
