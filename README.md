@@ -32,7 +32,7 @@ The name comes from its two main components: **Z** from Zstandard, which is used
 
 I built Z-Tensor to understand how video codecs work internally and to test how far PyTorch tensor operations can be pushed outside the usual Machine Learning workflow.
 
-The project combines several areas I enjoy such as image/video processing, compression, GPU-accelerated programming, binary serialization and performance-oriented Python.
+The project combines several areas I enjoy working with, such as image/video processing, compression, GPU-accelerated programming, binary serialization and performance-oriented Python.
 
 ---
 
